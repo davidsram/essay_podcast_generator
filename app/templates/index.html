@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>援翰写心 · 录</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <div class="rule"></div>
+      <h1 class="title">援翰写心</h1>
+      <p class="subtitle">把公众号里的字句，录成一段可听可看的影。</p>
+      <div class="rule"></div>
+    </header>
+
+    <section class="card">
+      <form id="gen-form" autocomplete="off">
+        <div class="sources">
+          <label class="src">
+            <input type="radio" name="src" value="url" checked />
+            <span>文章链接</span>
+          </label>
+          <label class="src">
+            <input type="radio" name="src" value="keyword" />
+            <span>搜狗关键词</span>
+          </label>
+          <label class="src">
+            <input type="radio" name="src" value="wcplus" />
+            <span>公众号（wcplusPro）</span>
+          </label>
+        </div>
+
+        <div class="src-pane" data-pane="url">
+          <label class="field">
+            <span class="label">公众号文章链接（推荐）</span>
+            <input name="url" type="url" placeholder="https://mp.weixin.qq.com/s/..." />
+          </label>
+        </div>
+
+        <div class="src-pane hidden" data-pane="keyword">
+          <label class="field">
+            <span class="label">搜索关键词</span>
+            <input name="keyword" type="text" placeholder="例：{{ default_account }}  / 某篇文章标题" disabled />
+          </label>
+        </div>
+
+        <div class="src-pane hidden" data-pane="wcplus">
+          <div class="field-row">
+            <label class="field">
+              <span class="label">公众号昵称</span>
+              <input id="wc-nick" name="wc_nick" type="text" value="{{ default_account }}" disabled />
+            </label>
+            <label class="field small">
+              <span class="label">列 N 篇</span>
+              <input id="wc-limit" type="number" min="1" max="50" value="10" disabled />
+            </label>
+            <button id="wc-list" class="btn ghost" type="button" disabled>列 出 文 章</button>
+          </div>
+          <p id="wc-status" class="hint"></p>
+          <ul id="wc-list-out" class="art-list hidden"></ul>
+        </div>
+
+        <label class="field inline">
+          <span class="label">LLM 后端</span>
+          <select name="backend">
+            <option value="minimax" selected>minimax (M3)</option>
+            <option value="claude">Claude</option>
+            <option value="mock">Mock (不联网)</option>
+          </select>
+        </label>
+
+        <!-- 兜底：wcplus 模式下，用户点选后我们把 URL 塞回这个 hidden 字段再 submit -->
+        <input id="picked-url" type="hidden" name="url" value="" disabled />
+
+        <button id="submit-btn" class="btn" type="submit" disabled>选 一 篇 后 再 录</button>
+      </form>
+    </section>
+
+    <section id="status" class="card status hidden">
+      <h2 class="card-title">正在录制</h2>
+      <div class="progress"><div class="bar" id="bar"></div></div>
+      <p class="message" id="message">准备中…</p>
+      <pre class="script" id="script"></pre>
+      <div class="result hidden" id="result">
+        <video id="video" controls playsinline></video>
+        <a id="download" class="btn ghost" download>下载视频</a>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>淡雅 · 隽永 · 一期一会</span>
+    </footer>
+  </main>
+
+  <script>
+    // === 视图切换 ===
+    const radios = document.querySelectorAll('input[name="src"]');
+    const panes = document.querySelectorAll('.src-pane');
+    const submitBtn = document.getElementById('submit-btn');
+    const pickedUrl = document.getElementById('picked-url');
+
+    function setPane(name) {
+      panes.forEach(p => p.classList.toggle('hidden', p.dataset.pane !== name));
+      // 启用对应输入
+      panes.forEach(p => {
+        const isMe = p.dataset.pane === name;
+        p.querySelectorAll('input, select, textarea, button').forEach(el => {
+          el.disabled = !isMe;
+        });
+      });
+      // 主按钮文案
+      if (name === 'wcplus') {
+        submitBtn.textContent = '选 一 篇 后 再 录';
+        submitBtn.disabled = true;
+      } else {
+        submitBtn.textContent = '开 始 录 制';
+        submitBtn.disabled = false;
+      }
+      // pickedUrl 只有在 wcplus 模式才有意义
+      pickedUrl.disabled = (name !== 'wcplus');
+    }
+    radios.forEach(r => r.addEventListener('change', e => setPane(e.target.value)));
+    setPane('url');
+
+    // === wcplus 列文章 ===
+    const wcListBtn = document.getElementById('wc-list');
+    const wcStatus = document.getElementById('wc-status');
+    const wcListOut = document.getElementById('wc-list-out');
+    const wcNick = document.getElementById('wc-nick');
+    const wcLimit = document.getElementById('wc-limit');
+
+    wcListBtn.addEventListener('click', async () => {
+      const nick = wcNick.value.trim();
+      const limit = parseInt(wcLimit.value || '10', 10);
+      if (!nick) { wcStatus.textContent = '请先填公众号昵称'; return; }
+      wcStatus.textContent = '正在取文章列表…';
+      wcListOut.classList.add('hidden');
+      wcListOut.innerHTML = '';
+      try {
+        const r = await fetch('/api/wcplus/articles?nickname=' + encodeURIComponent(nick) + '&limit=' + limit);
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({ detail: r.statusText }));
+          wcStatus.textContent = '失败：' + (err.detail || r.statusText);
+          return;
+        }
+        const d = await r.json();
+        const acc = d.account;
+        wcStatus.textContent = `共 ${acc.total_articles} 篇，取最新 ${d.articles.length} 篇`;
+        renderList(d.articles);
+        wcListOut.classList.remove('hidden');
+      } catch (e) {
+        wcStatus.textContent = '失败：' + e.message;
+      }
+    });
+
+    function fmtTime(ts) {
+      if (!ts) return '';
+      const d = new Date(ts * 1000);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+
+    function renderList(articles) {
+      wcListOut.innerHTML = '';
+      articles.forEach(a => {
+        const li = document.createElement('li');
+        li.className = 'art';
+        li.innerHTML =
+          `<div class="art-main">
+            <div class="art-title">${a.title}</div>
+            <div class="art-meta">${a.author || '佚名'} · ${fmtTime(a.publish_time)} · ${a.read_num}读 / ${a.like_num}赞</div>
+            ${a.digest ? `<div class="art-digest">${a.digest}</div>` : ''}
+          </div>
+          <button class="btn ghost small" type="button">选这篇</button>`;
+        li.querySelector('button').addEventListener('click', () => {
+          // 标记高亮 + 把 url 塞到 hidden + 启用 submit
+          wcListOut.querySelectorAll('.art').forEach(x => x.classList.remove('picked'));
+          li.classList.add('picked');
+          pickedUrl.value = a.url;
+          pickedUrl.disabled = false;
+          submitBtn.disabled = false;
+          submitBtn.textContent = '录  这  一  篇';
+        });
+        wcListOut.appendChild(li);
+      });
+    }
+
+    // === 主流程（沿用旧版） ===
+    const form = document.getElementById('gen-form');
+    const statusEl = document.getElementById('status');
+    const bar = document.getElementById('bar');
+    const message = document.getElementById('message');
+    const scriptEl = document.getElementById('script');
+    const result = document.getElementById('result');
+    const video = document.getElementById('video');
+    const download = document.getElementById('download');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      // wcplus 模式下，nickname 字段映射到后端的 nickname
+      if (data.get('src') === 'wcplus') {
+        data.set('nickname', wcNick.value.trim());
+        data.set('url', pickedUrl.value);  // 点选后才会有值
+      }
+      result.classList.add('hidden');
+      scriptEl.textContent = '';
+      statusEl.classList.remove('hidden');
+      bar.style.width = '5%';
+      message.textContent = '正在创建任务…';
+
+      const resp = await fetch('/api/generate', { method: 'POST', body: data });
+      const { job_id } = await resp.json();
+
+      const tick = async () => {
+        const r = await fetch('/api/job/' + job_id);
+        const j = await r.json();
+        bar.style.width = (j.progress || 0) + '%';
+        message.textContent = j.message || j.status;
+        if (j.script_json) {
+          const s = j.script_json;
+          scriptEl.textContent =
+            `《${s.title}》  ${s.subtitle}\n\n` +
+            s.segments.map((x, i) => `（${i + 1}）${x.text}`).join('\n\n') +
+            `\n\n—— ${s.closing}`;
+        }
+        if (j.status === 'done') {
+          const url = '/output/' + j.output_path.split('/').pop();
+          video.src = url;
+          download.href = url;
+          result.classList.remove('hidden');
+          return;
+        }
+        if (j.status === 'failed') {
+          message.textContent = '失败：' + (j.error || '');
+          return;
+        }
+        setTimeout(tick, 1500);
+      };
+      tick();
+    });
+  </script>
+</body>
+</html>
