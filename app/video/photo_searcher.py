@@ -136,8 +136,84 @@ def _tokenize_fallback(hint: str) -> str:
     return hint
 
 
+_RERANK_SYSTEM_PROMPT = """你是一个视频配图质检员。我会给你几段视频的提示词+正文，以及每段对应的候选照片。
+请为每段选出最匹配的照片序号（1-5），或返回 null（都不合适）。
+
+规则：
+- 理解正文的完整语义——场景、人物关系、情绪、氛围
+- 候选照片只看 alt 描述和摄影师名，判断是否与正文匹配
+- 明显不匹配的（如正文是"朋友聚会"但照片是"新郎准备婚礼"）→ null
+- 有合适的就选最贴的，不要勉强
+
+返回格式（严格 JSON）：
+{"picks": {"提示词1": 3, "提示词2": null, ...}}"""
+
+
+def _rerank_photos(
+    hints: list[str],
+    texts: list[str],
+    candidates: dict[str, list[dict]],
+    *,
+    client: Anthropic,
+    model: str,
+) -> dict[str, int | None]:
+    """LLM 对每段的候选照片 rerank，返回 hint→best_index (1-based) 或 None。"""
+    if not hints:
+        return {}
+
+    lines: list[str] = []
+    for i, hint in enumerate(hints):
+        lines.append(f"\n## {hint}")
+        if i < len(texts) and texts[i].strip():
+            lines.append(f"  正文：{texts[i].strip()[:150]}")
+        photos = candidates.get(hint, [])
+        if not photos:
+            lines.append("  (无候选)")
+            continue
+        for j, p in enumerate(photos):
+            alt = p.get("alt", "") or ""
+            photographer = p.get("photographer", "") or ""
+            avg = p.get("avg_color", "") or ""
+            lines.append(f"  {j+1}. [{alt}]  by {photographer}  color={avg}")
+    body = "\n".join(lines)
+
+    try:
+        msg = client.messages.create(
+            model=model,
+            max_tokens=1024,
+            system=_RERANK_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": f"候选照片：\n{body}\n\n请为每段选出最匹配的序号或 null。返回 JSON。"}],
+        )
+    except Exception:
+        logger.warning("rerank: LLM 调用失败", exc_info=True)
+        return {}
+
+    text_parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
+    raw = "".join(text_parts).strip()
+    m = re.match(r"^```(?:json)?\s*(.*?)\s*```$", raw, re.DOTALL)
+    if m:
+        raw = m.group(1).strip()
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("rerank: JSON 解析失败 raw=%s", raw[:200])
+        return {}
+
+    picks = data.get("picks", {})
+    if not isinstance(picks, dict):
+        return {}
+
+    result: dict[str, int | None] = {}
+    for hint, idx in picks.items():
+        if isinstance(idx, int) and 1 <= idx <= 5:
+            result[hint] = idx
+        else:
+            result[hint] = None
+    return result
+
+
 class PhotoSearcher:
-    """编排：LLM expand + Pexels get_or_download，返回 hint→(Path, meta) 映射。"""
+    """编排：LLM expand + Pexels 搜索 + LLM rerank + 下载，返回 hint→(Path, meta) 映射。"""
 
     def __init__(self, pexels: PexelsClient, *, client: Anthropic, model: str) -> None:
         self.pexels = pexels
@@ -147,30 +223,66 @@ class PhotoSearcher:
     def fetch_all(
         self, hints: list[str], *, texts: list[str] | None = None,
     ) -> dict[str, tuple[Path, dict] | None]:
-        """对每个 hint：LLM 扩词 → Pexels 搜 → 缓存下载。失败返 None。
+        """LLM 扩词 → Pexels 搜 5 张 → LLM rerank 挑最优 → 下载。
 
-        texts 可选：每段口播正文，传给 expand_hints 让 LLM 理解完整语境。
+        texts 可选：每段口播正文，传给 expand_hints + rerank 让 LLM 理解完整语境。
         """
         if not hints:
             return {}
 
+        texts = texts or [""] * len(hints)
+
+        # 1) LLM 扩词
         queries = expand_hints(
             hints, texts=texts, client=self.client, model=self.model,
         )
 
-        result: dict[str, tuple[Path, dict] | None] = {}
+        # 2) Pexels 搜多张（只拿元数据）
+        candidates: dict[str, list[dict]] = {}
         for hint in hints:
             terms = queries.get(hint) or [_tokenize_fallback(hint)]
-            primary = terms[0]
-            fallbacks = terms[1:] + [_tokenize_fallback(hint)]
-            # 去重保序
-            seen = {primary}
-            fallbacks = [f for f in fallbacks if f not in seen and not seen.add(f)]
-            try:
-                result[hint] = self.pexels.get_or_download(
-                    primary, fallback_queries=fallbacks
-                )
-            except Exception:
-                logger.warning("PhotoSearcher: hint=%r 全失败", hint, exc_info=True)
+            photos: list[dict] = []
+            for t in terms[:2]:  # 只搜前 2 个词，每个 5 张
+                batch = self.pexels.search_multi(t, per_page=5)
+                photos.extend(batch)
+                if len(photos) >= 5:
+                    break
+            # 去重（按 id）
+            seen_ids = set()
+            unique: list[dict] = []
+            for p in photos:
+                pid = p.get("id")
+                if pid and pid not in seen_ids:
+                    seen_ids.add(pid)
+                    unique.append(p)
+            candidates[hint] = unique[:5]
+
+        # 3) LLM rerank：挑最优
+        best_indices = _rerank_photos(
+            hints, texts, candidates, client=self.client, model=self.model,
+        )
+
+        # 4) 下载选中的
+        result: dict[str, tuple[Path, dict] | None] = {}
+        for hint in hints:
+            idx = best_indices.get(hint)
+            photos = candidates.get(hint, [])
+            if idx is not None and 1 <= idx <= len(photos):
+                photo = photos[idx - 1]
+                try:
+                    qhash = self.pexels.query_hash(photo.get("alt", "") or str(photo["id"]))
+                    path = self.pexels._download(photo, qhash)
+                    result[hint] = (path, {
+                        "id": photo.get("id"),
+                        "photographer": photo.get("photographer"),
+                        "photographer_url": photo.get("photographer_url"),
+                        "url": photo.get("url"),
+                        "alt": photo.get("alt"),
+                        "reranked": True,
+                    })
+                except Exception:
+                    logger.warning("PhotoSearcher: download 失败 hint=%r", hint, exc_info=True)
+                    result[hint] = None
+            else:
                 result[hint] = None
         return result

@@ -593,6 +593,9 @@ def render_card(
             [(seal_x, seal_y), (seal_x + 70, seal_y + 70)],
             fill=(180, 90, 70, 200),
         )
+        if title:
+            font_title = ImageFont.truetype(font_path, 28)
+            draw.text((90, h - 100), f"《{title}》", font=font_title, fill=PALETTE.text_sub)
     else:
         # === Polaroid 拍立得式排版 ===
         # 1) 纸面：caller 提供的 BG 走 heavy treatment 退成氛围底
@@ -651,7 +654,7 @@ def render_card(
                 line, font=font_main, fill=PALETTE.text_main,
             )
 
-        # 6) 底：朱红页码
+        # 6) 底：朱红页码（右下）+ 文章名（左下）
         if progress:
             page_y = h - 100
             bbox = draw.textbbox((0, 0), progress, font=font_meta)
@@ -659,6 +662,9 @@ def render_card(
             draw.text(
                 (w - 90 - pw, page_y), progress, font=font_meta, fill=(180, 90, 70)
             )
+        if title:
+            font_title = ImageFont.truetype(font_path, 28)
+            draw.text((90, h - 100), f"《{title}》", font=font_title, fill=PALETTE.text_sub)
 
         img = canvas.convert("RGB")
 
@@ -890,7 +896,7 @@ def compose_script(
         render_card(
             script.closing,
             closing_card,
-            title="",
+            title=script.title,
             subtitle="",
             index=len(script.segments),
             total=total_cards,

@@ -72,6 +72,14 @@ class PexelsClient:
             data = json.loads(r.read())
         return data.get("photos", [])
 
+    def search_multi(self, query: str, per_page: int = 5) -> list[dict]:
+        """搜多张，只返元数据不下载。用于 LLM rerank。"""
+        try:
+            return self.search(query, per_page=per_page)
+        except Exception:
+            logger.warning("pexels search_multi 失败: query=%r", query, exc_info=True)
+            return []
+
     def get_or_download(
         self, query: str, *, fallback_queries: list[str] | None = None
     ) -> tuple[Path, dict] | None:
