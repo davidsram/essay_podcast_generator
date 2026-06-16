@@ -1346,7 +1346,7 @@ class TestRenderCardV2Layout:
             bg=Image.new("RGB", (1080, 1920), (234, 230, 218)),
             show_polaroid=False,
         )
-        assert len(body_calls) == 12, f"主文字应 ≤12 行，实际 {len(body_calls)}"
+        assert len(body_calls) == 14, f"主文字应 ≤14 行，实际 {len(body_calls)}"
 
     def test_polaroid_走_treatment(
         self, fake_assets: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch

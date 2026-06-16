@@ -737,8 +737,7 @@ def render_card(
     w, h = settings.video_width, settings.video_height
 
     font_path = _find_chinese_font()
-    font_main = ImageFont.truetype(font_path, 42)
-    font_main_big = ImageFont.truetype(font_path, 72)  # 非 polaroid 用，字大撑场
+    font_body = ImageFont.truetype(font_path, 56)  # 统一字号，有/无拍立得一致
     font_meta = ImageFont.truetype(font_path, 30)
     font_closing = ImageFont.truetype(font_path, 76)
 
@@ -790,7 +789,10 @@ def render_card(
             if polaroid_img is None:
                 # 没图就 fallback 到纯米色填充
                 polaroid_img = Image.new("RGB", (w, h), _POLAROID_CARD_BG)
-            cap_text = caption or _short_caption_from(text) or visual_hint or "援翰写心"
+            # 抽象面板不加 caption 文字（色块图下写"非洲小城街巷"很奇怪）
+            # Pexels 实景 / LLM 选图才保留 caption
+            is_abstract = not (forced_polaroid_path or forced_polaroid_key)
+            cap_text = "" if is_abstract else (caption or _short_caption_from(text) or visual_hint or "援翰写心")
             card, shadow = _render_polaroid_card(polaroid_img, cap_text)
 
             # 3) 把卡（含阴影）贴到纸面中央偏上
@@ -806,22 +808,19 @@ def render_card(
         # 4) 顶：页眉（仅左，不放右上进度——避免与右下朱红页码重复）
         draw.text((90, 60), "援翰写心 · 卷", font=font_meta, fill=PALETTE.text_sub)
 
-        # 5) 主文字。
-        #    有 polaroid：42pt × 720 宽 × 13 行，从 y=1000 让位给上方 720×720 拍立得框；
-        #    无 polaroid：72pt × 900 宽 × ≤12 行，竖直居中（短段不再顶在 y=300，
-        #                长段自动从顶上往下铺）；clamp 到 [200, h-total_h-200] 留页眉/页码空间。
+        # 5) 主文字。统一 56pt（有/无拍立得大小一致，避免切换跳跃）。
+        #    有 polaroid：y=1000 让位给上方 720×720 拍立得框，720 宽 × 10 行；
+        #    无 polaroid：竖直居中，900 宽 × 14 行。
         if show_polaroid:
-            font_body = font_main
             max_text_w = 720
-            line_h = 56
+            line_h = 72
             text_y = 1000
-            max_lines = 13
+            max_lines = 10
         else:
-            font_body = font_main_big
             max_text_w = 900
-            line_h = 100
-            text_y = 0  # 居中模式下无意义，后面按行数算
-            max_lines = 12
+            line_h = 72
+            text_y = 0  # 居中模式，后面按行数算
+            max_lines = 14
         text_lines = _wrap_text(text, font_body, max_text_w)
         text_lines = text_lines[:max_lines]
         if not show_polaroid:
