@@ -50,7 +50,9 @@ class Settings:
     # 背景图氛围处理（模糊 + 降饱和 + 米色蒙版 + 暗角），默认开启。
     # 让真摄影图退成"染纸黄的氛围底"，跟字共处舒服。BG_TREATMENT=0 关掉做对比。
     bg_treatment_enabled: bool = _env("BG_TREATMENT", "1") not in {"0", "", "false", "False"}
-    tts_voice: str = _env("TTS_VOICE", "zh-CN-XiaoxiaoNeural")
+    tts_voice: str = field(
+        default_factory=lambda: _env("TTS_VOICE") or ""
+    )
     tts_rate: str = _env("TTS_RATE", "-8%")
 
     # Paths
