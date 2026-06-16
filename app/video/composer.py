@@ -90,7 +90,7 @@ BG_KEYWORDS: dict[str, list[str]] = {
     # 晨雾、湖面薄雾、清晨朦胧。避开原 misty_mountains 的"山/雾/云/远山"
     "morning_mist":   ["晨雾", "晓雾", "薄雾", "朝雾", "晨光", "晨曦", "破晓", "黎明", "晨曦微露", "水面雾", "拂晓"],
     # 青山新绿、春日嫩芽。避开原 misty_mountains 的"山/远山/翠微/峰/岭"
-    "green_hills":    ["青山", "新绿", "嫩绿", "春山", "新芽", "嫩芽", "萌", "绿意", "春色", "青翠", "新枝", "抽芽"],
+    "green_hills":    ["青山", "新绿", "嫩绿", "春山", "新芽", "嫩芽", "绿意", "春色", "青翠", "新枝", "抽芽"],
     # 静湖倒影、平湖如镜。避开原 lone_boat 的"舟/船/江/河/渡/渔"
     "quiet_lake":     ["静湖", "平湖", "湖面", "倒影", "湖水", "湖光", "湖色", "镜湖", "明湖", "湖平", "一潭"],
     # 林荫小径、雾林、晨光透林。避开原 ink_bamboo 的"竹/清影/清风"
@@ -102,51 +102,52 @@ BG_KEYWORDS: dict[str, list[str]] = {
     # 翻开的书页。避开原 rice_paper 的"书/字/卷/经/诗"
     "open_book":      ["翻书", "翻开", "书页", "书翻开", "书卷气", "翻页", "读本", "外文", "洋装书", "西书"],
     # 毛笔砚台、文房。避开原 ink_bamboo 的"墨竹/竹/清影"和 rice_paper 的"墨/经"
-    "ink_brush":      ["毛笔", "笔架", "砚台", "砚", "笔洗", "笔筒", "文房", "笔搁", "笔帘", "宣笔", "湖笔"],
+    "ink_brush":      ["毛笔", "笔架", "砚台", "笔洗", "笔筒", "文房", "笔搁", "笔帘", "宣笔", "湖笔"],
     # 窗台瓶花、晨光下静物。避开原 deep_courtyard 的"庭院/院/堂/厅"
     "window_sill":    ["窗台", "窗前", "瓶花", "案头花", "瓶中花", "插花", "案上花", "瓶插", "案清", "瓶供"],
     # 信纸钢笔手写信。避开原 rice_paper 的"纸/墨/书/信/字/卷"
     "paper_letter":   ["信纸", "信札", "手书", "钢笔字", "墨笔字", "钢笔", "钢笔信", "家书", "手写信", "便笺", "短笺"],
     # 青瓷/白瓷茶具。避开原 cup_of_tea 的"茶/茗/杯/盏/清茶/品茗"
-    "ceramic_cup":    ["瓷杯", "瓷盏", "瓷壶", "青瓷", "白瓷", "瓷", "细瓷", "杯盏", "素瓷", "瓷碗", "器皿"],
+    "ceramic_cup":    ["瓷杯", "瓷盏", "瓷壶", "青瓷", "白瓷", "细瓷", "杯盏", "素瓷", "瓷碗", "器皿"],
     # 烛台暖光、夜读小灯。避开原 snow_night 的"灯/孤灯/夜"
-    "candle_warm":    ["烛光", "烛", "烛台", "烛影", "烛火", "夜读", "灯下读", "夜灯", "烛照", "烛泪", "灯烛"],
+    "candle_warm":    ["烛光", "烛台", "烛影", "烛火", "夜读", "灯下读", "夜灯", "烛照", "烛泪", "灯烛"],
 
     # === 第三批（地域写真 12 张，Wikipedia 公共域/CC 1080x1920） ===
     # cascade 走 location_tags 时，visual_hint 在地域子集内 longest-match 二选。
     # 关键词尽量与既有 key 不冲突，避免误命中。
+    # **地域图硬要求：必须有 2 字以上硬锚词（城市/国家/古镇名）才能命中，避免泛化 hint 误选。**
     # 波兰 / 华沙
-    "warsaw_old_town":       ["老城", "城堡", "广场", "街", "波兰", "华沙"],
-    "warsaw_winter_street":  ["街", "建筑", "城", "暖", "华沙", "欧", "古"],
-    "krakow_square":         ["广场", "老城", "市集", "钟楼"],
-    "eastern_church":        ["教堂", "塔", "洋葱", "俄", "苏联", "古"],
+    "warsaw_old_town":       ["老城广场", "城堡广场", "华沙老城", "华沙", "波兰", "克拉科夫"],
+    "warsaw_winter_street":  ["华沙", "波兰", "欧式街", "暖灯街", "欧式建筑"],
+    "krakow_square":         ["克拉科夫", "中央广场", "纺织会馆", "波兰广场"],
+    "eastern_church":        ["洋葱头", "东欧教堂", "苏联教堂", "洋葱教堂"],
     # 日本
-    "kyoto_temple_street":   ["寺", "塔", "灯笼", "红", "和", "传统", "石阶"],
-    "tokyo_alley":           ["巷", "霓虹", "灯", "夜", "都市"],
+    "kyoto_temple_street":   ["京都", "和寺", "和风", "石灯笼", "千本鸟居", "鸟居", "日式寺"],
+    "tokyo_alley":           ["东京", "新宿", "涩谷", "霓虹巷", "霓虹"],
     # 中国 / 江南
-    "jiangnan_water_town":   ["水", "船", "桥", "江南", "雨"],
-    "china_old_town":        ["屋", "瓦", "巷", "古", "灯笼", "红", "毛皮", "羊皮"],
-    "ancient_bridge":        ["桥", "水", "亭", "古桥"],
+    "jiangnan_water_town":   ["江南", "水乡", "水巷", "乌镇", "周庄", "西塘", "同里", "甪直", "摇橹", "乌篷", "桨声", "烟雨水巷"],
+    "china_old_town":        ["老屋", "瓦房", "羊皮灯", "红灯笼", "灯笼", "古巷"],
+    "ancient_bridge":        ["古桥", "廊桥", "石桥", "拱桥"],
     # 西欧
-    "paris_cafe":            ["咖啡", "巴黎", "街", "灯", "法"],
-    "london_rain_street":    ["雨", "街", "雾", "伦敦", "英"],
-    "rome_cobblestone_alley":["巷", "石", "古", "罗马"],
+    "paris_cafe":            ["巴黎", "法式", "塞纳", "蒙马特", "左岸", "香榭", "法兰西"],
+    "london_rain_street":    ["伦敦", "英伦", "泰晤士", "大本钟", "雾都", "英国街"],
+    "rome_cobblestone_alley":["罗马", "鹅卵石", "石板路", "意大利巷"],
     # === 第四批：东欧冷寂系自然风景（原始森林/冷湖/松林/雾河/沼泽/运河）===
     # 视觉调：墨绿、冷、雾、暗——给波兰/苏联时期故事做"异国荒野"的 negative space
-    "bialowieza_forest":   ["森林", "树", "林", "暗", "墨绿", "静", "雾", "针叶", "野", "原始", "苔"],
-    "masurian_lake":       ["湖", "水", "雾", "晨", "冷", "静", "远", "冷湖", "平湖", "水面"],
-    "tatra_mountain":      ["雪山", "雪夜", "山", "松", "雪", "峰", "高", "冷", "暗", "针叶", "塔特拉", "岭"],
-    "augustow_canal":      ["运河", "水", "船", "静", "远", "河", "倒影"],
-    "biebrza_marsh":       ["湿地", "沼泽", "草", "雾", "水", "冷", "静", "别布扎", "晨雾"],
+    "bialowieza_forest":   ["比亚沃维耶扎", "原始森林", "针叶林", "苔藓林", "墨绿森林"],
+    "masurian_lake":       ["马祖里", "冷湖", "平湖", "晨湖", "东欧湖", "马祖里湖"],
+    "tatra_mountain":      ["塔特拉", "雪山", "雪夜", "雪峰", "针叶林", "雪山松林"],
+    "augustow_canal":      ["奥古斯图夫", "运河", "林运河", "东欧运河"],
+    "biebrza_marsh":       ["别布扎", "湿地", "沼泽", "晨雾沼泽", "东欧湿地"],
     # === 第五批：东欧天气场景（雪/雨/雾/夜，每张体现"天气+城市"）===
     # 2 字天气词让雪/雾/夜主题 visual_hint 在 poland cascade 池里压过晴天图。
-    "moscow_snow":        ["雪夜", "风雪", "寒夜", "漫天雪", "雪", "冬", "冰", "寒", "俄", "莫斯科", "运河", "冰封", "冻"],
-    "warsaw_snow":        ["雪夜", "风雪", "寒夜", "漫天雪", "雪", "冬", "港", "岸", "华沙", "冰", "寒", "冷"],
-    "krakow_rain":        ["雨巷", "雨", "湿", "巷", "石", "街", "灰", "克拉科夫"],
-    "warsaw_fog":         ["雾晨", "薄雾", "晨雾", "雾", "晨", "朦胧", "华沙", "街", "灰", "迷"],
-    "warsaw_night":       ["夜色", "夜灯", "夜晚", "夜", "灯", "光", "华沙", "街", "灯火", "暗"],
-    "prague_snow":        ["雪夜", "风雪", "雪", "冬", "城", "布拉格", "古", "街", "寒", "老城"],
-    "budapest_night":     ["夜色", "夜灯", "夜晚", "夜", "灯", "光", "布达佩斯", "桥", "河", "暗"],
+    "moscow_snow":        ["莫斯科", "雪夜", "风雪", "寒夜", "漫天雪", "冰封", "俄罗斯雪"],
+    "warsaw_snow":        ["华沙雪", "波兰雪", "雪夜", "风雪", "寒夜", "漫天雪"],
+    "krakow_rain":        ["克拉科夫雨", "克拉科夫", "雨巷", "波兰雨巷", "石街雨", "灰巷雨"],
+    "warsaw_fog":         ["华沙雾", "波兰雾", "晨雾", "晨雾朦胧", "薄雾晨"],
+    "warsaw_night":       ["华沙夜", "波兰夜", "夜灯", "夜色", "灯火"],
+    "prague_snow":        ["布拉格", "布拉格雪", "捷克雪", "雪夜老城"],
+    "budapest_night":     ["布达佩斯", "匈牙利夜", "多瑙河夜", "夜灯桥"],
 }
 
 
@@ -210,12 +211,18 @@ def _load_manifest() -> dict[str, dict]:
 
 
 def _pick_from_pool(pool: list[Path], visual_hint: str) -> Path:
-    """既有 longest-match 关键词匹配 + random 兜底；抽出来便于 cascade 复用。"""
+    """既有 longest-match 关键词匹配 + random 兜底；抽出来便于 cascade 复用。
+
+    防御：单字关键词（"雨"/"水"/"夜"）会让泛化 hint 误中具体地域图
+    （"烟雨远山" → "雨" 命中 jiangnan_water_town）。所以这里强制 keyword 长度 ≥ 2。
+    """
     hint = visual_hint or ""
     best: Path | None = None
     best_len = 0
     for filename, keywords in BG_KEYWORDS.items():
         for kw in keywords:
+            if len(kw) < 2:  # 1 字关键词太宽，跳过
+                continue
             if kw in hint and len(kw) > best_len:
                 cand_path = next((p for p in pool if p.stem == filename), None)
                 if cand_path is not None:
@@ -527,6 +534,166 @@ def _short_caption_from(text: str, max_chars: int = 6) -> str:
     return cleaned[:max_chars]
 
 
+POLAROID_INTERVAL = 3  # 中间页每 N 段穿插一张拍立得图
+
+
+# === 抽象面板生成器 ===
+# 拍立得 fallback：不再用 Pexels 实景，改用程序生成的几何/色块面板。
+# 优点：完全契合「淡雅·隽永」基调（无具体物体）；零网络依赖；确定性（同一 hint → 同面板）。
+# 设计原则：低饱和、暖灰/冷蓝灰/暮金/烟青/墨绿 5 套调色板；6 种构图模板；
+#         命中策略：hint 字符和 → 选 palette；hint 字符和 / 5 → 选 template。
+
+_ABSTRACT_PALETTES: dict[str, list[tuple[int, int, int]]] = {
+    "米黄暖灰": [(242, 236, 222), (228, 224, 210), (200, 195, 185), (180, 175, 168), (158, 122, 92), (130, 120, 108)],
+    "冷蓝灰":   [(210, 215, 222), (190, 200, 210), (160, 175, 185), (140, 155, 168), (110, 125, 140), (90, 105, 120)],
+    "暮金":     [(230, 215, 195), (215, 195, 165), (195, 170, 130), (175, 145, 100), (150, 120, 75), (120, 95, 60)],
+    "烟青":     [(225, 225, 220), (200, 205, 205), (170, 180, 185), (140, 155, 165), (115, 130, 145), (90, 110, 130)],
+    "墨绿山":   [(200, 205, 195), (170, 180, 170), (140, 155, 145), (110, 130, 120), (80, 100, 90), (60, 80, 70)],
+}
+
+
+def _abstract_panel_quadrant(palette: list[tuple[int, int, int]], seed: int) -> Image.Image:
+    """四象限纯色块——最简几何。"""
+    import random as _r
+    _r.seed(seed)
+    w, h = settings.video_width, settings.video_height
+    img = Image.new("RGB", (w, h), palette[0])
+    d = ImageDraw.Draw(img)
+    hx, hy = w // 2, h // 2
+    d.rectangle([(0, 0), (hx, hy)], fill=palette[1])
+    d.rectangle([(hx, 0), (w, hy)], fill=palette[2])
+    d.rectangle([(0, hy), (hx, h)], fill=palette[3])
+    d.rectangle([(hx, hy), (w, h)], fill=palette[4])
+    return img
+
+
+def _abstract_panel_horizon(palette: list[tuple[int, int, int]], seed: int) -> Image.Image:
+    """上下水平渐变——像天空/地面的抽象。"""
+    w, h = settings.video_width, settings.video_height
+    img = Image.new("RGB", (w, h), palette[0])
+    px = img.load()
+    horizon = 0.55
+    for y in range(h):
+        t = y / h
+        if t < horizon:
+            tt = t / horizon
+            r = int(palette[0][0] * (1 - tt) + palette[1][0] * tt)
+            g = int(palette[0][1] * (1 - tt) + palette[1][1] * tt)
+            b = int(palette[0][2] * (1 - tt) + palette[1][2] * tt)
+        else:
+            tt = (t - horizon) / (1 - horizon)
+            r = int(palette[2][0] * (1 - tt) + palette[3][0] * tt)
+            g = int(palette[2][1] * (1 - tt) + palette[3][1] * tt)
+            b = int(palette[2][2] * (1 - tt) + palette[3][2] * tt)
+        for x in range(w):
+            px[x, y] = (r, g, b)
+    return img
+
+
+def _abstract_panel_vertical_band(palette: list[tuple[int, int, int]], seed: int) -> Image.Image:
+    """左侧窄竖条 + 右侧大色块 + 下方一根细色条——东方版式构图。"""
+    import random as _r
+    _r.seed(seed)
+    w, h = settings.video_width, settings.video_height
+    img = Image.new("RGB", (w, h), palette[1])
+    d = ImageDraw.Draw(img)
+    bw = _r.randint(int(w * 0.15), int(w * 0.28))
+    d.rectangle([(0, 0), (bw, h)], fill=palette[3])
+    bar_y = _r.randint(int(h * 0.62), int(h * 0.78))
+    d.rectangle([(bw + 40, bar_y), (w - 80, bar_y + 28)], fill=palette[5])
+    return img
+
+
+def _abstract_panel_ink_blob(palette: list[tuple[int, int, int]], seed: int) -> Image.Image:
+    """水墨晕染：大圆 + 几个小点——现代抽象。"""
+    import random as _r
+    _r.seed(seed)
+    w, h = settings.video_width, settings.video_height
+    img = Image.new("RGB", (w, h), palette[0])
+    d = ImageDraw.Draw(img)
+    cx, cy = w // 2, h // 2
+    r = _r.randint(int(min(w, h) * 0.32), int(min(w, h) * 0.42))
+    d.ellipse([(cx - r, cy - r), (cx + r, cy + r)], fill=palette[2])
+    for _ in range(5):
+        x = _r.randint(int(w * 0.08), int(w * 0.92))
+        y = _r.randint(int(h * 0.12), int(h * 0.88))
+        rr = _r.randint(40, 110)
+        d.ellipse([(x - rr, y - rr), (x + rr, y + rr)], fill=palette[4])
+    return img
+
+
+def _abstract_panel_mondrian(palette: list[tuple[int, int, int]], seed: int) -> Image.Image:
+    """蒙德里安三色块 + 黑色细线——硬几何。"""
+    import random as _r
+    _r.seed(seed)
+    w, h = settings.video_width, settings.video_height
+    img = Image.new("RGB", (w, h), palette[0])
+    d = ImageDraw.Draw(img)
+    sx1 = int(w * 0.62)
+    sy1 = int(h * 0.55)
+    d.rectangle([(0, 0), (sx1, sy1)], fill=palette[2])
+    d.rectangle([(sx1, sy1), (w, h)], fill=palette[4])
+    sx = _r.randint(int(w * 0.18), int(w * 0.32))
+    sy = _r.randint(int(h * 0.74), int(h * 0.86))
+    sw = _r.randint(180, 280)
+    sh = _r.randint(120, 200)
+    d.rectangle([(sx, sy), (sx + sw, sy + sh)], fill=palette[5])
+    d.line([(sx1, 0), (sx1, sy1)], fill=palette[5], width=4)
+    d.line([(0, sy1), (w, sy1)], fill=palette[5], width=4)
+    return img
+
+
+def _abstract_panel_spotlight(palette: list[tuple[int, int, int]], seed: int) -> Image.Image:
+    """中心亮、边缘暗——氛围底。"""
+    w, h = settings.video_width, settings.video_height
+    img = Image.new("RGB", (w, h), palette[0])
+    px = img.load()
+    cx, cy = w // 2, h // 2
+    for y in range(h):
+        for x in range(0, w, 4):
+            d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+            t = min(1.0, d / 800)
+            r = int(palette[0][0] * (1 - t) + palette[5][0] * t)
+            g = int(palette[0][1] * (1 - t) + palette[5][1] * t)
+            b = int(palette[0][2] * (1 - t) + palette[5][2] * t)
+            for dx in range(4):
+                if x + dx < w:
+                    px[x + dx, y] = (r, g, b)
+    return img
+
+
+_ABSTRACT_TEMPLATES = [
+    _abstract_panel_quadrant,
+    _abstract_panel_horizon,
+    _abstract_panel_vertical_band,
+    _abstract_panel_ink_blob,
+    _abstract_panel_mondrian,
+    _abstract_panel_spotlight,
+]
+
+
+def _pick_abstract_bg(visual_hint: str, *, seg_index: int = 0) -> Image.Image:
+    """拍立得 fallback：程序生成抽象面板（确定性 + 段间区分）。
+
+    配色：hint 字符和 → palette（同一文章基调一致）
+    构图：seg_index → template（不同段换构图，避免重复）
+    """
+    palette_keys = list(_ABSTRACT_PALETTES.keys())
+    h = sum(ord(c) for c in (visual_hint or "援翰写心"))
+    palette = _ABSTRACT_PALETTES[palette_keys[h % len(palette_keys)]]
+    template = _ABSTRACT_TEMPLATES[seg_index % len(_ABSTRACT_TEMPLATES)]
+    return template(palette, seed=h + seg_index)
+
+
+def _should_show_polaroid(i: int, total: int, *, closing: bool = False) -> bool:
+    """首页必出 + 中间每 POLAROID_INTERVAL 段穿插 1 张。closing 永远不画。"""
+    if closing:
+        return False
+    if i == 0:
+        return True
+    return i > 0 and i % POLAROID_INTERVAL == 0
+
+
 def render_card(
     text: str,
     out_path: Path,
@@ -542,6 +709,8 @@ def render_card(
     article_context: dict | None = None,
     forced_polaroid_key: str | None = None,
     forced_polaroid_path: Path | None = None,
+    show_polaroid: bool = True,
+    seg_index: int = 0,
 ) -> Path:
     """渲染一张字幕卡。bg 为 None 时用纯渐变。
 
@@ -569,6 +738,7 @@ def render_card(
 
     font_path = _find_chinese_font()
     font_main = ImageFont.truetype(font_path, 42)
+    font_main_big = ImageFont.truetype(font_path, 72)  # 非 polaroid 用，字大撑场
     font_meta = ImageFont.truetype(font_path, 30)
     font_closing = ImageFont.truetype(font_path, 76)
 
@@ -604,54 +774,65 @@ def render_card(
             paper = _apply_bg_treatment(paper)
         canvas = paper.convert("RGBA")
 
-        # 2) 拍立得里的图：关 treatment 直出（保留清晰）
-        # 优先级：forced_polaroid_path（Pexels 搜图） > forced_polaroid_key（LLM 图库选图）> _pick_background
-        if forced_polaroid_path and forced_polaroid_path.exists():
-            polaroid_img = _open_and_maybe_treat(forced_polaroid_path, treat=False)
-        elif forced_polaroid_key:
-            photo_path = settings.asset_bg_dir / f"{forced_polaroid_key}.png"
-            polaroid_img = _open_and_maybe_treat(photo_path, treat=False) if photo_path.exists() else None
-        else:
-            polaroid_img = _pick_background(
-                visual_hint, treat=False, scope="real",
-                article_context=article_context,
-            )
-        if polaroid_img is None:
-            # 没图就 fallback 到纯米色填充
-            polaroid_img = Image.new("RGB", (w, h), _POLAROID_CARD_BG)
-        cap_text = caption or _short_caption_from(text) or visual_hint or "援翰写心"
-        card, shadow = _render_polaroid_card(polaroid_img, cap_text)
+        # 2) 拍立得里的图：show_polaroid=False 时整段跳过，
+        #    中间页归字本身的质感（首页 + 每 3 段穿插由 caller 决定）
+        if show_polaroid:
+            # 优先级：forced_polaroid_path（Pexels 搜图） > forced_polaroid_key（LLM 图库选图）> 抽象面板
+            # V3：fallback 改成程序生成的抽象面板（_pick_abstract_bg），
+            #     完全契合「淡雅·隽永」基调、零网络依赖、确定性。
+            if forced_polaroid_path and forced_polaroid_path.exists():
+                polaroid_img = _open_and_maybe_treat(forced_polaroid_path, treat=True)
+            elif forced_polaroid_key:
+                photo_path = settings.asset_bg_dir / f"{forced_polaroid_key}.png"
+                polaroid_img = _open_and_maybe_treat(photo_path, treat=True) if photo_path.exists() else None
+            else:
+                polaroid_img = _pick_abstract_bg(visual_hint, seg_index=seg_index)
+            if polaroid_img is None:
+                # 没图就 fallback 到纯米色填充
+                polaroid_img = Image.new("RGB", (w, h), _POLAROID_CARD_BG)
+            cap_text = caption or _short_caption_from(text) or visual_hint or "援翰写心"
+            card, shadow = _render_polaroid_card(polaroid_img, cap_text)
 
-        # 3) 把卡（含阴影）贴到纸面中央偏上
-        card_x = (w - _POLAROID_W) // 2
-        card_y = 200  # 顶 200px 留给页眉
-        canvas.paste(shadow, (card_x - 8, card_y - 4), shadow)
-        card_rgba = card.convert("RGBA")
-        canvas.paste(card_rgba, (card_x, card_y), card_rgba)
+            # 3) 把卡（含阴影）贴到纸面中央偏上
+            card_x = (w - _POLAROID_W) // 2
+            card_y = 200  # 顶 200px 留给页眉
+            canvas.paste(shadow, (card_x - 8, card_y - 4), shadow)
+            card_rgba = card.convert("RGBA")
+            canvas.paste(card_rgba, (card_x, card_y), card_rgba)
 
         draw = ImageDraw.Draw(canvas)
         progress = f"{index + 1:02d} / {total:02d}" if total else ""
 
-        # 4) 顶：页眉
+        # 4) 顶：页眉（仅左，不放右上进度——避免与右下朱红页码重复）
         draw.text((90, 60), "援翰写心 · 卷", font=font_meta, fill=PALETTE.text_sub)
-        if progress:
-            bbox = draw.textbbox((0, 0), progress, font=font_meta)
-            pw = bbox[2] - bbox[0]
-            draw.text((w - 90 - pw, 60), progress, font=font_meta, fill=PALETTE.text_sub)
 
-        # 5) 下：主文字（从 y=1000 开始，居中 720 宽，最多 13 行；
-        #    42pt × 17 字/行 ≈ 220 字，覆盖典型 100-200 字段落；
-        #    末行 y≈1728 离底页码 (y=1820) 还有 92px 间距）
-        max_text_w = 720
-        text_lines = _wrap_text(text, font_main, max_text_w)
-        line_h = 56
-        text_y = 1000
-        for i, line in enumerate(text_lines[:13]):
-            bbox = draw.textbbox((0, 0), line, font=font_main)
+        # 5) 主文字。
+        #    有 polaroid：42pt × 720 宽 × 13 行，从 y=1000 让位给上方 720×720 拍立得框；
+        #    无 polaroid：72pt × 900 宽 × ≤12 行，竖直居中（短段不再顶在 y=300，
+        #                长段自动从顶上往下铺）；clamp 到 [200, h-total_h-200] 留页眉/页码空间。
+        if show_polaroid:
+            font_body = font_main
+            max_text_w = 720
+            line_h = 56
+            text_y = 1000
+            max_lines = 13
+        else:
+            font_body = font_main_big
+            max_text_w = 900
+            line_h = 100
+            text_y = 0  # 居中模式下无意义，后面按行数算
+            max_lines = 12
+        text_lines = _wrap_text(text, font_body, max_text_w)
+        text_lines = text_lines[:max_lines]
+        if not show_polaroid:
+            total_text_h = len(text_lines) * line_h
+            text_y = max(200, min((h - total_text_h) / 2, h - total_text_h - 200))
+        for i, line in enumerate(text_lines):
+            bbox = draw.textbbox((0, 0), line, font=font_body)
             lw = bbox[2] - bbox[0]
             draw.text(
                 ((w - lw) / 2, text_y + i * line_h),
-                line, font=font_main, fill=PALETTE.text_main,
+                line, font=font_body, fill=PALETTE.text_main,
             )
 
         # 6) 底：朱红页码（右下）+ 文章名（左下）
@@ -874,6 +1055,7 @@ def compose_script(
         bg = _pick_background(seg.visual_hint, scope="ink")
         pexels_result = paths.get(seg.visual_hint)
         forced_path = pexels_result[0] if pexels_result else None
+        show = _should_show_polaroid(i, len(script.segments))
         render_card(
             seg.text,
             card_path,
@@ -887,6 +1069,8 @@ def compose_script(
             article_context=article_context,
             forced_polaroid_key=picks.get(seg.visual_hint),
             forced_polaroid_path=forced_path,
+            show_polaroid=show,
+            seg_index=i,
         )
         cards.append(card_path)
 

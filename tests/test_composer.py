@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from PIL import Image
@@ -17,9 +18,12 @@ from app.video import composer
 from app.video.composer import (
     BGM_MOOD,
     BG_KEYWORDS,
+    _pick_abstract_bg,
     _pick_background,
+    _pick_from_pool,
     _pick_music,
     _pick_music_for_body,
+    _should_show_polaroid,
     render_card,
 )
 
@@ -184,8 +188,9 @@ class TestPickBackground:
         bg, _ = fake_assets
         (bg / "rain_jiannan.png").write_bytes(b"not a png")
         _make_bg(bg, "misty_mountains", color=(77, 88, 99))
-        # 命中 rain_jiannan 但文件坏；返回 None（caller 用 gradient 兜底）
-        img = _pick_background("雨")
+        # 防御式关键词过滤已要求 kw≥2（防单字误命中地域图），
+        # 所以这里用「烟雨」显式命中 rain_jiannan
+        img = _pick_background("烟雨")
         assert img is None
 
     @pytest.mark.unit
@@ -552,20 +557,29 @@ class TestWeatherScenePool:
 
     @pytest.mark.unit
     def test_warsaw_fog_weather_keywords(self) -> None:
-        """warsaw_fog 关键词应含雾，用于路由 '晨雾' 类 visual_hint。"""
+        """warsaw_fog 关键词应含晨雾/薄雾等 2 字组合，用于路由 '晨雾' 类 visual_hint。
+
+        历史教训：旧版用 '雾' 1 字关键词，会被泛化 hint（如 '烟雨远山' 里的
+        '雨' 不会被命中但 '烟雨' 仍误中）抢走——已改 min_keyword_len ≥ 2 防御。
+        这里断言用 2 字+ 的具体词。
+        """
         kws = BG_KEYWORDS["warsaw_fog"]
-        assert "雾" in kws, f"warsaw_fog 缺雾关键词: {kws}"
+        assert "晨雾" in kws, f"warsaw_fog 缺 2 字关键词 '晨雾': {kws}"
 
     @pytest.mark.unit
     def test_warsaw_night_weather_keywords(self) -> None:
-        """warsaw_night 关键词应含夜，用于路由 '夜景' 类 visual_hint。"""
+        """warsaw_night 关键词应含夜灯/夜色等 2 字组合。"""
         kws = BG_KEYWORDS["warsaw_night"]
-        assert "夜" in kws, f"warsaw_night 缺夜关键词: {kws}"
+        assert "夜灯" in kws or "夜色" in kws, (
+            f"warsaw_night 缺 2 字夜关键词: {kws}"
+        )
 
     @pytest.mark.unit
     def test_budapest_night_weather_keywords(self) -> None:
         kws = BG_KEYWORDS["budapest_night"]
-        assert "夜" in kws, f"budapest_night 缺夜关键词: {kws}"
+        assert "夜灯桥" in kws or "匈牙利夜" in kws, (
+            f"budapest_night 缺 2 字夜关键词: {kws}"
+        )
 
     @pytest.mark.unit
     def test_volga_river_已从索引移除(self) -> None:
@@ -1143,3 +1157,346 @@ class TestRenderCardForcedPath:
         assert img is not None
         assert img.size == (1080, 1920)
 
+
+class TestShouldShowPolaroid:
+    """首页必出 + 每 3 段穿插 1 张，closing 永远不画。"""
+
+    @pytest.mark.parametrize(
+        "i, total, closing, expected",
+        [
+            # 首页
+            (0, 5, False, True),
+            # 中间每 3 段
+            (3, 5, False, True),
+            (6, 7, False, True),
+            # 中间非 3 倍数：不画
+            (1, 5, False, False),
+            (2, 5, False, False),
+            (4, 5, False, False),
+            (5, 7, False, False),
+            (7, 8, False, False),
+            # closing 永远不画
+            (0, 5, True, False),
+            (3, 5, True, False),
+        ],
+    )
+    def test_规则(
+        self, i: int, total: int, closing: bool, expected: bool
+    ) -> None:
+        assert _should_show_polaroid(i, total, closing=closing) is expected
+
+
+class TestRenderCardShowPolaroid:
+    """show_polaroid 参数：True 时画拍立得（调 _render_polaroid_card + _pick_background），
+    False 时跳过两者，只剩 bg + 主文字。"""
+
+    def test_默认_True_走_拍立得(
+        self, fake_assets: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bg, _ = fake_assets
+        _make_bg(bg, "warsaw_snow", color=(11, 22, 33))
+        out = bg.parent / "card_show.png"
+
+        polaroid_mock = MagicMock(return_value=(Image.new("RGB", (720, 720)), Image.new("RGBA", (740, 740))))
+        pick_mock = MagicMock(return_value=Image.new("RGB", (800, 600)))
+        monkeypatch.setattr(composer, "_render_polaroid_card", polaroid_mock)
+        # V3：polaroid fallback 改用 _pick_abstract_bg，不再调 _pick_background
+        monkeypatch.setattr(composer, "_pick_abstract_bg", pick_mock)
+
+        render_card("测试", out, bg=Image.new("RGB", (1080, 1920), (200, 200, 200)))
+
+        assert polaroid_mock.call_count == 1
+        assert pick_mock.call_count == 1
+        assert Image.open(out).size == (1080, 1920)
+
+    def test_False_完全_跳过_拍立得(
+        self, fake_assets: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bg, _ = fake_assets
+        _make_bg(bg, "warsaw_snow", color=(11, 22, 33))
+        out = bg.parent / "card_noshow.png"
+
+        polaroid_mock = MagicMock(return_value=(Image.new("RGB", (720, 720)), Image.new("RGBA", (740, 740))))
+        pick_mock = MagicMock(return_value=Image.new("RGB", (800, 600)))
+        monkeypatch.setattr(composer, "_render_polaroid_card", polaroid_mock)
+        monkeypatch.setattr(composer, "_pick_background", pick_mock)
+
+        render_card(
+            "测试文字。",
+            out,
+            bg=Image.new("RGB", (1080, 1920), (200, 200, 200)),
+            show_polaroid=False,
+        )
+
+        assert polaroid_mock.call_count == 0
+        assert pick_mock.call_count == 0
+        assert Image.open(out).size == (1080, 1920)
+
+
+class TestRenderCardTextLayout:
+    """非 polaroid 用大字号 + 宽文本框；右上页码已移除。"""
+
+    def test_polaroid_走_小字号_720(
+        self, fake_assets: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bg, _ = fake_assets
+        _make_bg(bg, "warsaw_snow", color=(11, 22, 33))
+        out = bg.parent / "card_polaroid_layout.png"
+        wrap_mock = MagicMock(wraps=composer._wrap_text)
+        monkeypatch.setattr(composer, "_wrap_text", wrap_mock)
+        render_card(
+            "测试正文。", out,
+            bg=Image.new("RGB", (1080, 1920), (200, 200, 200)),
+            show_polaroid=True,
+        )
+        widths = [c.args[2] for c in wrap_mock.call_args_list]
+        assert 720 in widths
+
+    def test_非_polaroid_走_大字号_900(
+        self, fake_assets: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bg, _ = fake_assets
+        _make_bg(bg, "warsaw_snow", color=(11, 22, 33))
+        out = bg.parent / "card_nopolaroid_layout.png"
+        wrap_mock = MagicMock(wraps=composer._wrap_text)
+        monkeypatch.setattr(composer, "_wrap_text", wrap_mock)
+        render_card(
+            "测试正文。", out,
+            bg=Image.new("RGB", (1080, 1920), (200, 200, 200)),
+            show_polaroid=False,
+        )
+        widths = [c.args[2] for c in wrap_mock.call_args_list]
+        assert 900 in widths
+        assert 720 not in widths
+
+    def test_右上页码_已_移除_polaroid(
+        self, fake_assets: tuple[Path, Path]
+    ) -> None:
+        bg, _ = fake_assets
+        _make_bg(bg, "warsaw_snow", color=(11, 22, 33))
+        out = bg.parent / "card_no_top_polaroid.png"
+        render_card(
+            "测试。", out, index=2, total=5,
+            bg=Image.new("RGB", (1080, 1920), (234, 230, 218)),
+            show_polaroid=True,
+        )
+        img = Image.open(out).convert("RGB")
+        # 右上 (w-100, 80) 应是 bg 色，不该有 progress 文字的墨色
+        assert sum(img.getpixel((980, 80))[:3]) > 600  # bg ~ 234+230+218=682
+
+    def test_右上页码_已_移除_非_polaroid(
+        self, fake_assets: tuple[Path, Path]
+    ) -> None:
+        bg, _ = fake_assets
+        _make_bg(bg, "warsaw_snow", color=(11, 22, 33))
+        out = bg.parent / "card_no_top_nopolaroid.png"
+        render_card(
+            "测试。", out, index=2, total=5,
+            bg=Image.new("RGB", (1080, 1920), (234, 230, 218)),
+            show_polaroid=False,
+        )
+        img = Image.open(out).convert("RGB")
+        assert sum(img.getpixel((980, 80))[:3]) > 600
+
+    def test_左下文章名_保留(
+        self, fake_assets: tuple[Path, Path]
+    ) -> None:
+        bg, _ = fake_assets
+        _make_bg(bg, "warsaw_snow", color=(11, 22, 33))
+        out = bg.parent / "card_article_name.png"
+        render_card(
+            "测试。", out, title="巴拿马一夜", index=2, total=5,
+            bg=Image.new("RGB", (1080, 1920), (234, 230, 218)),
+            show_polaroid=False,
+        )
+        img = Image.open(out).convert("RGB")
+        # 文章名 28pt 在 (90, 1820)，跨 ~7 字到 (260, 1848)；扫一段找墨色像素
+        region = img.crop((90, 1820, 280, 1850)).getdata()
+        dark_count = sum(1 for px in region if sum(px[:3]) < 400)
+        assert dark_count > 5, f"文章名未画出（dark_count={dark_count}）"
+
+
+class TestRenderCardV2Layout:
+    """V2 改造：非 polaroid 15 行（占画面 60%）；polaroid 走 treatment（抽象化）。"""
+
+    def test_非_polaroid_主文字_最多_15_行(
+        self, fake_assets: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bg, _ = fake_assets
+        _make_bg(bg, "warsaw_snow", color=(11, 22, 33))
+        out = bg.parent / "card_15lines.png"
+        # 长文本确保 _wrap_text 返回 >15 行
+        long_text = "援翰写心。" * 80  # 480 字，必然超过 15 行
+        # monkeypatch ImageDraw.Draw：拦截 draw.text 调用，只统计 fill=text_main 的（主文字）
+        body_calls: list = []
+
+        class _FakeDraw:
+            def __init__(self, _img): pass
+            def text(self, xy, text_str, *args, **kwargs):
+                fill = kwargs.get("fill")
+                if fill == composer.PALETTE.text_main:
+                    body_calls.append(text_str)
+            def textbbox(self, *args, **kwargs):
+                return (0, 0, 100, 30)
+            def rectangle(self, *args, **kwargs): pass
+            def line(self, *args, **kwargs): pass
+        monkeypatch.setattr(composer.ImageDraw, "Draw", _FakeDraw)
+        render_card(
+            long_text, out,
+            bg=Image.new("RGB", (1080, 1920), (234, 230, 218)),
+            show_polaroid=False,
+        )
+        assert len(body_calls) == 12, f"主文字应 ≤12 行，实际 {len(body_calls)}"
+
+    def test_polaroid_走_treatment(
+        self, fake_assets: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bg, _ = fake_assets
+        # fixture 默认 bg_treatment_enabled=False；这里临时打开让 treatment 真的触发
+        monkeypatch.setattr(composer.settings, "bg_treatment_enabled", True)
+        photo_path = bg / "snowy.jpg"
+        Image.new("RGB", (100, 100), (200, 210, 220)).save(photo_path)
+        out = bg.parent / "card_treat.png"
+        treat_mock = MagicMock(wraps=composer._apply_bg_treatment)
+        monkeypatch.setattr(composer, "_apply_bg_treatment", treat_mock)
+        render_card(
+            "测试。", out, index=0, total=5,
+            bg=Image.new("RGB", (1080, 1920), (234, 230, 218)),
+            visual_hint="夜色", show_polaroid=True,
+            forced_polaroid_path=photo_path,
+        )
+        # paper + polaroid 都过 treatment → ≥ 2 次
+        assert treat_mock.call_count >= 2, (
+            f"polaroid 路径未走 _apply_bg_treatment（call_count={treat_mock.call_count}）"
+        )
+
+    def test_非_polaroid_不_走_treatment(
+        self, fake_assets: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bg, _ = fake_assets
+        _make_bg(bg, "warsaw_snow", color=(11, 22, 33))
+        out = bg.parent / "card_no_treat.png"
+        treat_mock = MagicMock(wraps=composer._apply_bg_treatment)
+        monkeypatch.setattr(composer, "_apply_bg_treatment", treat_mock)
+        render_card(
+            "测试。", out, index=1, total=5,
+            bg=Image.new("RGB", (1080, 1920), (234, 230, 218)),
+            visual_hint="夜色", show_polaroid=False,
+        )
+        # fixture 禁用 paper treatment；非 polaroid 不该触发
+        assert treat_mock.call_count == 0, "非 polaroid 不应走 _apply_bg_treatment"
+
+
+class TestAbstractPanel:
+    """V3：拍立得 fallback 用程序生成的抽象面板（不再用 Pexels 实景）。"""
+
+    def test_尺寸_对(self) -> None:
+        img = _pick_abstract_bg("夜色")
+        assert img.size == (1080, 1920)
+
+    def test_确定性_同_hint_同_面板(self) -> None:
+        a = _pick_abstract_bg("夜色")
+        b = _pick_abstract_bg("夜色")
+        # 逐像素相同
+        import numpy as np
+        na, nb = np.array(a), np.array(b)
+        assert (na == nb).all()
+
+    def test_不同_hint_不同_面板(self) -> None:
+        a = _pick_abstract_bg("夜色")
+        b = _pick_abstract_bg("晨光")
+        import numpy as np
+        na, nb = np.array(a), np.array(b)
+        assert not (na == nb).all()
+
+    def test_不同_seg_index_不同_模板(self) -> None:
+        """同 hint、不同 seg_index 必须出不同模板（避免一段文章多幕重复图）。"""
+        import numpy as np
+        a = _pick_abstract_bg("夜色", seg_index=0)
+        b = _pick_abstract_bg("夜色", seg_index=1)
+        c = _pick_abstract_bg("夜色", seg_index=2)
+        na, nb, nc = np.array(a), np.array(b), np.array(c)
+        assert not (na == nb).all(), "seg 0/1 模板不应相同"
+        assert not (nb == nc).all(), "seg 1/2 模板不应相同"
+        assert not (na == nc).all(), "seg 0/2 模板不应相同"
+
+    def test_同_seg_index_确定性(self) -> None:
+        """同 hint + 同 seg_index → 逐像素相同。"""
+        import numpy as np
+        a = _pick_abstract_bg("夜色", seg_index=3)
+        b = _pick_abstract_bg("夜色", seg_index=3)
+        assert (np.array(a) == np.array(b)).all()
+
+    def test_空_hint_也_能_生(self) -> None:
+        img = _pick_abstract_bg("")
+        assert img.size == (1080, 1920)
+
+    def test_render_card_polaroid_走_抽象_路径(
+        self, fake_assets: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bg, _ = fake_assets
+        _make_bg(bg, "warsaw_snow", color=(11, 22, 33))
+        out = bg.parent / "card_abstract.png"
+        # 不传 forced_polaroid_path/key → 走 _pick_abstract_bg
+        pick_mock = MagicMock(wraps=composer._pick_abstract_bg)
+        monkeypatch.setattr(composer, "_pick_abstract_bg", pick_mock)
+        render_card(
+            "测试。", out, index=0, total=5,
+            bg=Image.new("RGB", (1080, 1920), (234, 230, 218)),
+            visual_hint="夜色", show_polaroid=True,
+        )
+        assert pick_mock.call_count == 1, "polaroid 应调 _pick_abstract_bg"
+        assert Image.open(out).size == (1080, 1920)
+
+
+
+class TestKeywordCascadeGuard:
+    """防『泛化 hint 误中具体地域图』。
+
+    历史教训：用户反馈巴拿马机场文章配图是江南鱼乡——
+    根因是 visual_hint='烟雨远山' 的 '雨'（1 字）命中 jiangnan_water_town
+    关键词列表里 1 字的 '雨'。修复：_pick_from_pool 强制 len(kw) ≥ 2。
+    """
+
+    @pytest.mark.unit
+    def test_单字_关键词_不再_触发_地域_误中(
+        self, fake_assets: tuple[Path, Path]
+    ) -> None:
+        """结构断言：jiangnan 关键词列表已清空 1 字项，未来加回会被本测试拦截。"""
+        jiangnan_kws = BG_KEYWORDS["jiangnan_water_town"]
+        offenders = [kw for kw in jiangnan_kws if len(kw) < 2]
+        assert not offenders, (
+            f"jiangnan 关键词含 1 字项 {offenders}，cascade 防御失效"
+        )
+
+    @pytest.mark.unit
+    def test_显式_地域词_仍_能_命中(
+        self, fake_assets: tuple[Path, Path]
+    ) -> None:
+        """'江南水乡夜色' 应仍能命中 jiangnan_water_town（'江南'/'水乡' 2 字+）。"""
+        bg, _ = fake_assets
+        _make_bg(bg, "jiangnan_water_town", color=(100, 200, 100))
+        _make_bg(bg, "morning_mist", color=(220, 220, 240))
+        pool = sorted(bg.glob("*.png"))
+        chosen = _pick_from_pool(pool, "江南水乡夜色")
+        assert chosen.stem == "jiangnan_water_town", (
+            f"显式 '江南' 关键词应命中 jiangnan_water_town，实际 {chosen.stem}"
+        )
+
+    @pytest.mark.unit
+    def test_所有_地域_图_关键词_都_2_字_以上(self) -> None:
+        """结构性不变量：_REAL_PHOTO_KEYS 所有地域图关键词都 ≥ 2 字。
+
+        这是防『泛化 hint 误中具体地域图』的根本护栏——若未来又有人加回
+        1 字关键词（'雨'/'水'/'夜'），本测试会 fail 提醒他。
+        """
+        offenders: list[str] = []
+        for stem in composer._REAL_PHOTO_KEYS:
+            kws = BG_KEYWORDS.get(stem, [])
+            for kw in kws:
+                if len(kw) < 2:
+                    offenders.append(f"{stem}: {kw!r}")
+        assert not offenders, (
+            "地域图含 1 字关键词，cascade 会被泛化 hint 误中：\n"
+            + "\n".join(offenders)
+        )

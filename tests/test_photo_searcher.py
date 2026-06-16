@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.video.photo_searcher import PhotoSearcher, expand_hints
+from app.video import photo_searcher as ps_mod
 
 
 def _make_msg(text: str) -> MagicMock:
@@ -83,6 +84,44 @@ class TestExpandHints:
         client.messages.create.return_value = _make_msg('{"queries": "string"}')
         result = expand_hints(["雪"], client=client, model="haiku")
         assert result == {}
+
+    def test_系统_prompt_内容_匹配_优先_于_风格(self) -> None:
+        """Pexels 搜索词必须紧扣正文场景，风格偏好降为次要。
+
+        历史教训：用户反馈"图片内容是江南鱼乡，与正文不符"——
+        因为旧 prompt 把 abstract/minimalist/水墨 等风格词放到首位，
+        LLM 倾向返回水墨/水乡/雨巷类图，与文章实际场景（机场/草原/老照片）无关。
+
+        新 prompt：内容匹配是首要原则，风格偏好降为次要。
+        """
+        prompt = ps_mod._EXPAND_SYSTEM_PROMPT
+        # 首要原则：内容匹配 / 场景锚定
+        primary = ["内容匹配", "实际场景", "地点", "正文"]
+        for kw in primary:
+            assert kw in prompt, f"系统 prompt 缺内容匹配关键词 {kw!r}"
+        # 仍保留风格倾向作为软偏好
+        secondary = ["abstract", "minimalist"]
+        for kw in secondary:
+            assert kw in prompt.lower(), f"系统 prompt 应保留风格词 {kw!r} 作为次要参考"
+        # 不再把 abstract 当作首要原则——确认没有"风格倾向（重要）"的旧表述
+        assert "风格倾向（重要）" not in prompt, "旧表述『风格倾向（重要）』已废弃，应改为次要"
+
+    def test_rerank_prompt_内容_优先_且_地域_不_符_必须_null(self) -> None:
+        """rerank prompt 必须把内容匹配放首位，且明确要求地域/年代/活动不符 → null。
+
+        历史教训：旧 prompt 只说"明显不匹配就 null"，但 Pexels alt 描述模糊，
+        江南鱼乡 vs 非洲机场在 LLM 看来都是"雨中夜景"，就被误选。
+        新 prompt：风格不能当匹配依据，地域/年代/活动不符硬性 null。
+        """
+        prompt = ps_mod._RERANK_SYSTEM_PROMPT
+        assert "内容匹配 > 风格匹配" in prompt, "rerank 应把内容匹配放首位"
+        assert "不能作为匹配依据" in prompt or "不能当匹配依据" in prompt, (
+            "rerank 应明确风格不是匹配依据"
+        )
+        # 关键硬规则：地域不吻合必须 null
+        assert "地域" in prompt and "null" in prompt, (
+            "rerank 应包含『地域不吻合 → null』的硬规则"
+        )
 
 
 class TestPhotoSearcher:
